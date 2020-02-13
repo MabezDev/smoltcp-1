@@ -1754,9 +1754,9 @@ mod test {
     #[cfg(feature = "proto-ipv4")]
     use wire::{ArpOperation, ArpPacket, ArpRepr};
     use wire::{EthernetAddress, EthernetFrame, EthernetProtocol};
-    use wire::{IpAddress, IpCidr, IpProtocol, IpRepr, Ipv4Cidr};
+    use wire::{IpAddress, IpCidr, IpProtocol, IpRepr};
     #[cfg(feature = "proto-ipv4")]
-    use wire::{Ipv4Address, Ipv4Repr};
+    use wire::{Ipv4Address, Ipv4Repr, Ipv4Cidr};
     #[cfg(feature = "proto-igmp")]
     use wire::Ipv4Packet;
     #[cfg(feature = "proto-ipv4")]
@@ -1937,6 +1937,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(all(feature = "proto-ipv4"))]
     fn test_ipv4_subnet_broadcasts() {
         let (mut iface, _) = create_loopback();
         iface.update_ip_addrs(|addrs| {
