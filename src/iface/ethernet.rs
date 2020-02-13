@@ -972,8 +972,7 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
         if !self.has_ip_addr(ipv4_repr.dst_addr) &&
            !ipv4_repr.dst_addr.is_broadcast() &&
            !self.has_multicast_group(ipv4_repr.dst_addr) &&
-           !self.is_subnet_broadcast(IpAddress::Ipv4(ipv4_repr.dst_addr)) {
-
+           !self.is_subnet_broadcast(ipv4_repr.dst_addr) {
             // Ignore IP packets not directed at us, or broadcast, or any of the multicast groups.
             // If AnyIP is enabled, also check if the packet is routed locally.
             if !self.any_ip {
@@ -1019,27 +1018,22 @@ impl<'b, 'c, 'e> InterfaceInner<'b, 'c, 'e> {
         }
     }
 
-    /// Checks if an incoming packet has a broadcast address for the interfaces
-    /// first ip address
-    fn is_subnet_broadcast(&self, address: IpAddress) -> bool {
-        match address {
-            #[cfg(feature = "proto-ipv4")]
-            IpAddress::Ipv4(addr) => {
-                let own_cidr = self.ip_addrs.iter()
-                .filter_map(|cidr| match cidr {
-                    IpCidr::Ipv4(ipv4) => Some(ipv4),
-                    _ => None,
-                }).next();
+    /// Checks if an incoming packet has a subnet broadcast address for the interfaces
+    /// first ipv4 address
+    #[cfg(feature = "proto-ipv4")]
+    fn is_subnet_broadcast(&self, address: Ipv4Address) -> bool {
+        let own_cidr = self.ip_addrs.iter()
+        .filter_map(|cidr| match cidr {
+            IpCidr::Ipv4(ipv4) => Some(ipv4),
+            _ => None,
+        }).next();
 
-                if let Some(broadcast) = own_cidr.map_or(None, |c| c.broadcast()) {
-                    if addr == broadcast {
-                        return true
-                    }
-                }
-                false
-            },
-            _ => false
+        if let Some(broadcast) = own_cidr.map_or(None, |c| c.broadcast()) {
+            if address == broadcast {
+                return true
+            }
         }
+        false
     } 
 
     /// Host duties of the **IGMPv2** protocol.
@@ -1943,7 +1937,7 @@ mod test {
     }
 
     #[test]
-    fn test_local_subnet_broadcasts() {
+    fn test_ipv4_subnet_broadcasts() {
         let (mut iface, _) = create_loopback();
         iface.update_ip_addrs(|addrs| {
             addrs.iter_mut().nth(0).map(|addr| {
@@ -1951,28 +1945,28 @@ mod test {
             });
         });
 
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 1, 255]))), true);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 1, 254]))), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 1, 255])), true);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 1, 254])), false);
 
         iface.update_ip_addrs(|addrs| {
             addrs.iter_mut().nth(0).map(|addr| {
                 *addr = IpCidr::Ipv4(Ipv4Cidr::new(Ipv4Address([192, 168, 23, 24]), 16));
             });
         });
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 23, 255]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 23, 254]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 255, 254]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 168, 255, 255]))), true);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 23, 255])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 23, 254])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 255, 254])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 168, 255, 255])), true);
 
         iface.update_ip_addrs(|addrs| {
             addrs.iter_mut().nth(0).map(|addr| {
                 *addr = IpCidr::Ipv4(Ipv4Cidr::new(Ipv4Address([192, 168, 23, 24]), 8));
             });
         });
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 23, 1, 255]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 23, 1, 254]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 255, 255, 254]))), false);
-        assert_eq!(iface.inner.is_subnet_broadcast(IpAddress::Ipv4(Ipv4Address([192, 255, 255, 255]))), true);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 23, 1, 255])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 23, 1, 254])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 255, 255, 254])), false);
+        assert_eq!(iface.inner.is_subnet_broadcast(Ipv4Address([192, 255, 255, 255])), true);
     }
 
     #[test]
